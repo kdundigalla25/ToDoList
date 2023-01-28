@@ -17,6 +17,54 @@
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
 
+.parent {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  margin: 10px auto;
+}
+
+.submitButton {
+  background-color: red;
+}
+
+.clearButton {
+  background-color: red;
+  margin-left: 8px;
+}
+
+.listItems {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: 65px;
+}
+
+.item {
+  display: flex;
+  margin-top: 10px;
+  margin-bottom: 5px;
+  padding: 0 5px;
+  width: 100%;
+  background: lightblue;
+  border-radius: 8px;
+}
+
+.xButton:hover {
+  cursor: pointer;
+  background-color: red;
+  border-radius: 8px;
+  border: 1px solid red;
+}
+
+.xButton {
+  width: auto;
+  padding: 0;
+  align-content: flex-end;
+  height: fit-content;
+  margin: auto 0;
+}
+
 @keyframes logo-spin {
   from {
     transform: rotate(0deg);
@@ -30,12 +78,4 @@
   a:nth-of-type(2) .logo {
     animation: logo-spin infinite 20s linear;
   }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
 }
