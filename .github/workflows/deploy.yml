@@ -1,0 +1,111 @@
+name: Deploy to Github Pages
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  pages-changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      changed: ${{ contains(steps.changes.outputs.changes, 'not-api') && contains(steps.changes.outputs.changes, 'not-license') && contains(steps.changes.outputs.changes, 'not-readme') && contains(steps.changes.outputs.changes, 'not-vscode') }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          base: "master"
+          # if a filter is false, it means that the only change matched it, so do not deploy
+          filters: |
+            not-api: '!api/**'
+            not-license: '!LICENSE*'
+            not-readme: '!**/README*'
+            not-vscode: '!.vscode/**'
+  build-pages:
+    runs-on: ubuntu-latest
+    needs: pages-changes
+    if: ${{ needs.pages-changes.outputs.changed == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2.2.2
+        with:
+          version: 7.17.0
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+          cache: "pnpm"
+      - name: Build
+        run: |
+          pnpm i --frozen-lockfile
+          pnpm build
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: dist/
+          retention-days: 2
+
+  api-changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      changed: ${{ contains(steps.changes.outputs.changes, 'src') || contains(steps.changes.outputs.changes, 'actions') }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          base: "master"
+          filters: |
+            src: api/**
+            actions: .github/**
+  deploy-api:
+    runs-on: ubuntu-latest
+    needs: api-changes
+    if: ${{ needs.api-changes.outputs.changed == 'true' }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: api
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+      - name: Install Shuttle
+        uses: taiki-e/install-action@v1
+        with:
+          tool: cargo-shuttle
+      - name: Login to Shuttle
+        run: cargo shuttle login --api-key ${{ secrets.SHUTTLE_API_KEY }}
+      - name: Create Secrets.toml
+        # add secrets from repo into a file for shuttle when we deploy
+        run: |
+          touch Secrets.toml
+      - name: Deploy
+        run: cargo shuttle deploy
+
+  deploy-pages:
+    runs-on: ubuntu-latest
+    needs: [build-pages, deploy-api]
+    if: ${{ !failure() && !cancelled() && (needs.build-pages.result == 'success' || needs.deploy-api.result == 'success' ) }}
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+    # Deploy to the github-pages environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1
